@@ -14,13 +14,13 @@
     ddListenIP.SelectedIndex = 0
 
     Dim cfg = MyConfig.Load(config)
-    If cfg.ListenIP = JHSoftware.SimpleDNS.Plugin.IPAddress.Parse("0.0.0.0") Then
+    If cfg.ListenIP = SdnsIP.Parse("0.0.0.0") Then
       ddListenIP.SelectedIndex = 0
-    ElseIf cfg.ListenIP = JHSoftware.SimpleDNS.Plugin.IPAddress.Parse("::") Then
+    ElseIf cfg.ListenIP = sdnsip.Parse("::") Then
       ddListenIP.SelectedIndex = 1
     Else
       For i = 2 To ddListenIP.Items.Count - 1
-        If JHSoftware.SimpleDNS.Plugin.IPAddress.Parse(ddListenIP.Items(i).ToString) = cfg.ListenIP Then ddListenIP.SelectedIndex = i : Exit For
+        If SdnsIP.Parse(ddListenIP.Items(i).ToString) = cfg.ListenIP Then ddListenIP.SelectedIndex = i : Exit For
       Next
     End If
     numListenPort.Value = cfg.ListenPort
@@ -50,11 +50,11 @@
   Public Overrides Function SaveData() As String
     Dim cfg As New MyConfig
     If ddListenIP.SelectedItem.ToString = AllIp4 Then
-      cfg.ListenIP = JHSoftware.SimpleDNS.Plugin.IPAddress.Parse("0.0.0.0")
+      cfg.ListenIP = SdnsIP.Parse("0.0.0.0")
     ElseIf ddListenIP.SelectedItem.ToString = AllIp6 Then
-      cfg.ListenIP = JHSoftware.SimpleDNS.Plugin.IPAddress.Parse("::")
+      cfg.ListenIP = SdnsIP.Parse("::")
     Else
-      cfg.ListenIP = JHSoftware.SimpleDNS.Plugin.IPAddress.Parse(ddListenIP.SelectedItem.ToString)
+      cfg.ListenIP = SdnsIP.Parse(ddListenIP.SelectedItem.ToString)
     End If
     cfg.ListenPort = CUShort(numListenPort.Value)
     cfg.ConnectHost = txtConnHost.Text.Trim.ToLowerInvariant

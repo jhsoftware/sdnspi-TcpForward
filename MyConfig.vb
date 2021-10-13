@@ -1,6 +1,6 @@
 ﻿Friend Class MyConfig
 
-  Friend ListenIP As JHSoftware.SimpleDNS.Plugin.IPAddress
+  Friend ListenIP As SdnsIP
   Friend ListenPort As UShort
 
   Friend ConnectHost As String
@@ -26,7 +26,7 @@
     If Not s.StartsWith("1|") Then Throw New Exception("Unknown configuration data version")
     Dim va = PipeDecode(s)
     Dim rv As New MyConfig
-    rv.ListenIP = JHSoftware.SimpleDNS.Plugin.IPAddress.Parse(va(1))
+    rv.ListenIP = SdnsIP.Parse(va(1))
     rv.ListenPort = UShort.Parse(va(2))
     rv.ConnectHost = va(3)
     rv.ConnectPort = UShort.Parse(va(4))

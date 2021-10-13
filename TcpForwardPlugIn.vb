@@ -1,6 +1,7 @@
 ﻿Public Class TcpForwardPlugIn
   Implements JHSoftware.SimpleDNS.Plugin.IPlugInBase
   Implements JHSoftware.SimpleDNS.Plugin.IViewUI
+  Implements JHSoftware.SimpleDNS.Plugin.IOptionsUI
 
   Dim cfg As MyConfig
   Dim LSock As System.Net.Sockets.Socket
@@ -11,12 +12,10 @@
 
   Dim Tmr As System.Threading.Timer
 
-#Region "events"
-  Public Event AsyncError(ByVal ex As System.Exception) Implements JHSoftware.SimpleDNS.Plugin.IPlugInBase.AsyncError
-  Public Event LogLine(ByVal text As String) Implements JHSoftware.SimpleDNS.Plugin.IPlugInBase.LogLine
-  Public Event SaveConfig(ByVal config As String) Implements JHSoftware.SimpleDNS.Plugin.IPlugInBase.SaveConfig
-  Public Event MsgToViewUI(ByVal connID As Integer, ByVal msg() As Byte) Implements JHSoftware.SimpleDNS.Plugin.IViewUI.MsgToViewUI
-#End Region
+  Public Event MsgToViewUI As Plugin.IViewUI.MsgToViewUIEventHandler Implements Plugin.IViewUI.MsgToViewUI
+
+  Public Property Host As Plugin.IHost Implements Plugin.IPlugInBase.Host
+
 #Region "not implemented"
   Public Sub LoadState(ByVal state As String) Implements JHSoftware.SimpleDNS.Plugin.IPlugInBase.LoadState
     REM nothing
@@ -31,9 +30,7 @@
     Dim rv As JHSoftware.SimpleDNS.Plugin.IPlugInBase.PlugInTypeInfo
     rv.Name = "TCP Port Forwarder"
     rv.Description = "Forwards TCP traffic"
-    rv.InfoURL = "http://www.simpledns.com/kb.aspx?kbid=1288"
-    rv.ConfigFile = False
-    rv.MultiThreaded = False
+    rv.InfoURL = "https://simpledns.plus/kb/188/tcp-port-forwarder-plug-in"
     Return rv
   End Function
 
@@ -47,20 +44,21 @@
     Return False
   End Function
 
-  Public Sub LoadConfig(ByVal config As String, ByVal instanceID As System.Guid, ByVal dataPath As String, ByRef maxThreads As Integer) Implements JHSoftware.SimpleDNS.Plugin.IPlugInBase.LoadConfig
+  Public Sub LoadConfig(config As String, instanceID As System.Guid, dataPath As String) Implements JHSoftware.SimpleDNS.Plugin.IPlugInBase.LoadConfig
     cfg = MyConfig.Load(config)
   End Sub
 
-  Public Sub StartService() Implements JHSoftware.SimpleDNS.Plugin.IPlugInBase.StartService
+  Public Function StartService() As Threading.Tasks.Task Implements JHSoftware.SimpleDNS.Plugin.IPlugInBase.StartService
     ShuttingDown = False
     Conns = New List(Of Connection)
-    LSock = New System.Net.Sockets.Socket(cfg.ListenIP.ToNetIPAddress.AddressFamily, Net.Sockets.SocketType.Stream, Net.Sockets.ProtocolType.Tcp)
-    LSock.Bind(New System.Net.IPEndPoint(cfg.ListenIP.ToNetIPAddress, cfg.ListenPort))
+    LSock = New System.Net.Sockets.Socket(cfg.ListenIP.ToIPAddress.AddressFamily, Net.Sockets.SocketType.Stream, Net.Sockets.ProtocolType.Tcp)
+    LSock.Bind(New System.Net.IPEndPoint(cfg.ListenIP.ToIPAddress, cfg.ListenPort))
     LSock.Listen(5)
     LSock.BeginAccept(AddressOf LSockCB, LSock)
 
     Tmr = New System.Threading.Timer(AddressOf TimerTick, Me, 0, 1000)
-  End Sub
+    Return Threading.Tasks.Task.CompletedTask
+  End Function
 
   Private Sub TimerTick(ByVal state As Object)
     If ShuttingDown Then Exit Sub
@@ -69,7 +67,7 @@
       SyncLock Conns
         For i = Conns.Count - 1 To 0 Step -1
           If Conns(i).IdleTime.TotalSeconds > cfg.TimeOut Then
-            RaiseEvent LogLine(Conns(i).ClientIP.ToString & " - Idle connection time out.")
+            Host.LogLine(Conns(i).ClientIP.ToString & " - Idle connection time out.")
             Conns(i).ShutDown()
           End If
         Next
@@ -105,14 +103,14 @@
         conn.Sock1.Close()
       Catch
       End Try
-      RaiseEvent LogLine(conn.ClientIP.ToString & " - New connection rejected - Max. connections already open")
+      Host.LogLine(conn.ClientIP.ToString & " - New connection rejected - Max. connections already open")
       GoTo markWaitForNext
     End If
 
-    RaiseEvent LogLine(conn.ClientIP.ToString & " - New connection accepted")
+    Host.LogLine(conn.ClientIP.ToString & " - New connection accepted")
 
     Dim IPs As System.Net.IPAddress()
-    Dim IP As System.Net.IPAddress
+    Dim IP As System.Net.IPAddress = Nothing
     If System.Net.IPAddress.TryParse(cfg.ConnectHost, IP) Then
       ReDim IPs(0)
       IPs(0) = IP
@@ -126,7 +124,7 @@
         conn.Sock1.Close()
       Catch
       End Try
-      RaiseEvent LogLine(conn.ClientIP.ToString & " - New connection rejected - could not resolve server host name.")
+      Host.LogLine(conn.ClientIP.ToString & " - New connection rejected - could not resolve server host name.")
       GoTo markWaitForNext
     End If
 markResolved:
@@ -139,7 +137,7 @@ markResolved:
         conn.Sock1.Close()
       Catch
       End Try
-      RaiseEvent LogLine(conn.ClientIP.ToString & " - New connection rejected - error connecting to host: " & ex.Message)
+      Host.LogLine(conn.ClientIP.ToString & " - New connection rejected - error connecting to host: " & ex.Message)
       GoTo markWaitForNext
     End Try
 
@@ -153,7 +151,7 @@ markResolved:
           conn.Sock2.Close()
         Catch
         End Try
-        RaiseEvent LogLine(conn.ClientIP.ToString & " - New connection rejected - Max. connections already open")
+        Host.LogLine(conn.ClientIP.ToString & " - New connection rejected - Max. connections already open")
         GoTo markWaitForNext
       End If
 
@@ -170,15 +168,15 @@ markWaitForNext:
       LSock.BeginAccept(AddressOf LSockCB, LSock)
     Catch ex As Exception
       If ShuttingDown Then Exit Sub
-      RaiseEvent AsyncError(New Exception("Error on listening socket: " & ex.Message, ex))
+      Host.AsyncError(New Exception("Error on listening socket: " & ex.Message, ex))
     End Try
   End Sub
 
   Sub Conn_SockError(ByVal sender As Connection, ByVal ex As Exception)
     If TypeOf ex Is System.Net.Sockets.SocketException Then
-      RaiseEvent LogLine(sender.ClientIP.ToString & " - Socket error " & DirectCast(ex, System.Net.Sockets.SocketException).SocketErrorCode & ": " & ex.Message)
+      Host.LogLine(sender.ClientIP.ToString & " - Socket error " & DirectCast(ex, System.Net.Sockets.SocketException).SocketErrorCode & ": " & ex.Message)
     Else
-      RaiseEvent LogLine(sender.ClientIP.ToString & " - Error: " & ex.Message)
+      Host.LogLine(sender.ClientIP.ToString & " - Error: " & ex.Message)
     End If
   End Sub
 
@@ -186,7 +184,7 @@ markWaitForNext:
     SyncLock Conns
       Conns.Remove(sender)
     End SyncLock
-    RaiseEvent LogLine(sender.ClientIP.ToString & " - Connection closed. " & sender.BytesIn & " bytes received. " & sender.BytesOut & " bytes sent. Connected for " & DateTime.UtcNow.Subtract(sender.StartTime).ToString)
+    Host.LogLine(sender.ClientIP.ToString & " - Connection closed. " & sender.BytesIn & " bytes received. " & sender.BytesOut & " bytes sent. Connected for " & DateTime.UtcNow.Subtract(sender.StartTime).ToString)
   End Sub
 
   Sub Conn_DataTransfered(ByVal sender As Connection, ByVal Inbound As Boolean, ByVal count As Integer)
@@ -212,7 +210,7 @@ markWaitForNext:
     SendStats()
   End Sub
 
-  Public Function GetOptionsUI(ByVal instanceID As System.Guid, ByVal dataPath As String) As JHSoftware.SimpleDNS.Plugin.OptionsUI Implements JHSoftware.SimpleDNS.Plugin.IPlugInBase.GetOptionsUI
+  Public Function GetOptionsUI(ByVal instanceID As System.Guid, ByVal dataPath As String) As JHSoftware.SimpleDNS.Plugin.OptionsUI Implements JHSoftware.SimpleDNS.Plugin.IOptionsUI.GetOptionsUI
     Return New OptionsUI
   End Function
 
