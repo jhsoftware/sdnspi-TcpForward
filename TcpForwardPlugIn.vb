@@ -26,11 +26,11 @@
   End Function
 #End Region
 
-  Public Function GetPlugInTypeInfo() As JHSoftware.SimpleDNS.Plugin.IPlugInBase.PlugInTypeInfo Implements JHSoftware.SimpleDNS.Plugin.IPlugInBase.GetPlugInTypeInfo
+  Public Function GetPlugInTypeInfo() As JHSoftware.SimpleDNS.Plugin.IPlugInBase.PlugInTypeInfo Implements JHSoftware.SimpleDNS.Plugin.IPlugInBase.GetTypeInfo
     Dim rv As JHSoftware.SimpleDNS.Plugin.IPlugInBase.PlugInTypeInfo
     rv.Name = "TCP Port Forwarder"
     rv.Description = "Forwards TCP traffic"
-    rv.InfoURL = "https://simpledns.plus/kb/188/tcp-port-forwarder-plug-in"
+    rv.InfoURL = "https://simpledns.plus/plugin-tcpforward"
     Return rv
   End Function
 
