@@ -1,5 +1,5 @@
 ﻿Public Class TcpForwardPlugIn
-  Implements JHSoftware.SimpleDNS.Plugin.IPlugInBase
+  Implements JHSoftware.SimpleDNS.Plugin.INoDNS
   Implements JHSoftware.SimpleDNS.Plugin.IViewUI
   Implements JHSoftware.SimpleDNS.Plugin.IOptionsUI
 
@@ -16,18 +16,8 @@
 
   Public Property Host As Plugin.IHost Implements Plugin.IPlugInBase.Host
 
-#Region "not implemented"
-  Public Sub LoadState(ByVal state As String) Implements JHSoftware.SimpleDNS.Plugin.IPlugInBase.LoadState
-    REM nothing
-  End Sub
-
-  Public Function SaveState() As String Implements JHSoftware.SimpleDNS.Plugin.IPlugInBase.SaveState
-    Return ""
-  End Function
-#End Region
-
-  Public Function GetPlugInTypeInfo() As JHSoftware.SimpleDNS.Plugin.IPlugInBase.PlugInTypeInfo Implements JHSoftware.SimpleDNS.Plugin.IPlugInBase.GetTypeInfo
-    Dim rv As JHSoftware.SimpleDNS.Plugin.IPlugInBase.PlugInTypeInfo
+  Public Function GetPlugInTypeInfo() As Plugin.TypeInfo Implements Plugin.IPlugInBase.GetTypeInfo
+    Dim rv As Plugin.TypeInfo
     rv.Name = "TCP Port Forwarder"
     rv.Description = "Forwards TCP traffic"
     rv.InfoURL = "https://simpledns.plus/plugin-tcpforward"
